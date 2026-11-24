@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>BeatSynth - Sintetizador Táctil</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:monospace;user-select:none;-webkit-user-select:none}
+  body{background:#070510;color:#fff;overflow:hidden;width:100vw;height:100vh;touch-action:none}
+  canvas{position:fixed;inset:0;width:100%;height:100%;z-index:1}
+  .hud{position:fixed;top:16px;left:50%;transform:translateX(-50%);width:92%;max-width:400px;background:rgba(15,10,30,0.88);border:1px solid #a855f7;border-radius:14px;padding:10px 14px;z-index:10;display:flex;justify-content:space-between;align-items:center}
+  h1{font-size:11px;color:#d8b4fe}
+  button{border:none;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:bold;color:#fff;background:#7c3aed}
+  .hint{position:fixed;bottom:24px;width:100%;text-align:center;font-size:11px;color:#94a3b8;z-index:5;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="hud">
+  <h1 id="info">BEAT SYNTH | TOCA LA PANTALLA</h1>
+  <button id="bWave">ONDA: SUAVE</button>
+</div>
+<div class="hint">Desliza el dedo: Izq/Der = Nota | Arriba/Abajo = Tono</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),info=document.getElementById('info');
+let w,h,audioCtx,osc,gain,filter,isDown=false,px=0,py=0,wIdx=0;
+const waves=['sine','square','triangle'],wNames=['SUAVE','RETRO','PROFUNDO'];
+
+function resize(){w=cv.width=window.innerWidth;h=cv.height=window.innerHeight;}
+window.addEventListener('resize',resize);resize();
+
+document.getElementById('bWave').onclick=(e)=>{
+  e.stopPropagation();
+  wIdx=(wIdx+1)%waves.length;
+  document.getElementById('bWave').textContent='ONDA: '+wNames[wIdx];
+  if(osc)osc.type=waves[wIdx];
+};
+
+function startSound(x,y){
+  if(!audioCtx){
+    audioCtx=new AudioContext();
+    osc=audioCtx.createOscillator();
+    filter=audioCtx.createBiquadFilter();
+    gain=audioCtx.createGain();
+    osc.type=waves[wIdx];
+    gain.gain.value=0;
+    osc.connect(filter);filter.connect(gain);gain.connect(audioCtx.destination);
+    osc.start();
+  }
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  isDown=true;
+  updateSound(x,y);
+}
+
+function updateSound(x,y){
+  if(!isDown)return;
+  px=x;py=y;
+  const freq=110+(x/w)*660;
+  const cut=200+((h-y)/h)*3000;
+  osc.frequency.setTargetAtTime(freq,audioCtx.currentTime,0.02);
+  filter.frequency.setTargetAtTime(cut,audioCtx.currentTime,0.02);
+  gain.gain.setTargetAtTime(0.35,audioCtx.currentTime,0.02);
+  info.textContent='FREC: '+Math.round(freq)+' Hz';
+}
+
+function stopSound(){
+  isDown=false;
+  if(gain)gain.gain.setTargetAtTime(0,audioCtx.currentTime,0.05);
+  info.textContent='BEAT SYNTH | TOCA LA PANTALLA';
+}
+
+cv.addEventListener('pointerdown',(e)=>startSound(e.clientX,e.clientY));
+cv.addEventListener('pointermove',(e)=>updateSound(e.clientX,e.clientY));
+window.addEventListener('pointerup',stopSound);
+
+function draw(){
+  requestAnimationFrame(draw);
+  ctx.fillStyle='rgba(7,5,16,0.18)';ctx.fillRect(0,0,w,h);
+  if(isDown){
+    ctx.beginPath();ctx.arc(px,py,35+Math.sin(Date.now()*0.02)*12,0,Math.PI*2);
+    ctx.strokeStyle='#c084fc';ctx.lineWidth=4;ctx.stroke();
+  }
+}
+draw();
+</script>
+</body>
+</html>
